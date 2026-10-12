@@ -1,0 +1,939 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d31b235a-2a78-4d9c-ae63-dcce28cfe2e6",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8fb723ae-bb4a-4494-8ac6-e11e7bf75781",
+              "name": "report_month",
+              "value": "2025-07",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "f43b09ae-88aa-4dad-8b1e-54cd687a4604",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1455737556,
+          "mode": "list",
+          "cachedResultName": "Budget",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=1455737556"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "month",
+              "lookupValue": "={{ $('Edit Fields').item.json.report_month }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "bbc26be2-fddb-4a00-9c84-c75894cb895b",
+      "name": "Read Budget",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 101334185,
+          "mode": "list",
+          "cachedResultName": "Actuals",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=101334185"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "month",
+              "lookupValue": "={{ $('Edit Fields').first().json.report_month }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        640,
+        0
+      ],
+      "id": "cd64b9a4-469e-446c-9962-ff0452656e9c",
+      "name": "Read Actuals",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const month = $('Edit Fields').first().json.report_month;\nconst budget = $('Read Budget').all().map(i => i.json);\nconst actuals = $('Read Actuals').all().map(i => i.json);\n\n// Google Sheets may send numbers as text like \"1,600,000\" - convert to real numbers\nconst toNum = v => Number(String(v).replace(/[£,\\s]/g, '')) || 0;\n\n// DATA CHECK: stop the workflow if either side is missing\nif (budget.length === 0) throw new Error(`No budget rows found for ${month}`);\nif (actuals.length === 0) throw new Error(`No actuals found for ${month}`);\n\n// Match each line on department + GL code\nconst lines = {};\nconst blank = r => ({ month, department: r.department, gl_code: r.gl_code,\n  account: r.account, category: r.category, budget_amount: 0, actual_amount: 0 });\n\nfor (const r of budget) {\n  const key = `${r.department}|${r.gl_code}`;\n  lines[key] = blank(r);\n  lines[key].budget_amount = toNum(r.amount);\n}\nfor (const r of actuals) {\n  const key = `${r.department}|${r.gl_code}`;\n  if (!lines[key]) lines[key] = blank(r);   // actual with no budget still comes through\n  lines[key].actual_amount = toNum(r.amount);\n}\n\nreturn Object.values(lines).map(json => ({ json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        112
+      ],
+      "id": "318b5fa9-597b-432c-a119-e58e6d13a8c1",
+      "name": "Match Budget to Actuals"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 80452982,
+          "mode": "list",
+          "cachedResultName": "Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=80452982"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        944,
+        112
+      ],
+      "id": "87230db2-456c-469c-a763-84eb6c86b329",
+      "name": "Read Config",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Thresholds from the Config tab (so they can change without editing code)\nconst cfg = Object.fromEntries($('Read Config').all().map(i => [i.json.key, i.json.value]));\nconst toNum = v => Number(String(v).replace(/[£,%\\s]/g, '')) || 0;\nconst pct = v => String(v).includes('%') ? toNum(v) / 100 : toNum(v);   // \"5%\" or 0.05 both work\n\nconst pctT  = pct(cfg.pct_threshold);    // 0.05\nconst absT  = toNum(cfg.abs_threshold);  // 10000\nconst floor = toNum(cfg.floor);          // 2000\n\nreturn $('Match Budget to Actuals').all().map(item => {\n  const r = item.json;\n  const budget = r.budget_amount, actual = r.actual_amount;\n  const variance = actual - budget;\n  const varPct = budget !== 0 ? variance / Math.abs(budget) : null;\n\n  // Revenue above budget is good; costs above budget are bad\n  const favourable = r.category === 'Revenue' ? variance >= 0 : variance <= 0;\n\n  // Material = big in £, OR big in % (but not tiny £ amounts)\n  const material = Math.abs(variance) >= absT ||\n    (varPct !== null && Math.abs(varPct) >= pctT && Math.abs(variance) >= floor);\n\n  return { json: {\n    ...r,\n    variance,\n    variance_pct: varPct === null ? null : Math.round(varPct * 1000) / 10,\n    direction: favourable ? 'F' : 'U',\n    material\n  }};\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        112
+      ],
+      "id": "090d5e36-4f8c-46b2-b0b2-ae13ebdbeb31",
+      "name": "Calculate Variances"
+    },
+    {
+      "parameters": {
+        "jsCode": "const month = $('Edit Fields').first().json.report_month;\nconst lines = $('Calculate Variances').all().map(i => i.json);\nconst cfg = Object.fromEntries($('Read Config').all().map(i => [i.json.key, i.json.value]));\nconst toNum = v => Number(String(v).replace(/[£,\\s]/g, '')) || 0;\nconst total = (arr, f) => arr.reduce((s, x) => s + f(x), 0);\n\n// ---- CONTROL: reconcile back to the source sheets ----\nconst srcBudget = total($('Read Budget').all(), i => toNum(i.json.amount));\nconst srcActual = total($('Read Actuals').all(), i => toNum(i.json.amount));\nconst calcBudget = total(lines, l => l.budget_amount);\nconst calcActual = total(lines, l => l.actual_amount);\nif (Math.abs(srcBudget - calcBudget) > 1 || Math.abs(srcActual - calcActual) > 1) {\n  throw new Error(`Reconciliation failed for ${month}: source actuals ${srcActual}, calculated ${calcActual}`);\n}\n\n// ---- P&L roll-up ----\nconst sum = (cat, key) => total(lines.filter(l => l.category === cat), l => l[key]);\nconst pl = key => {\n  const rev = sum('Revenue', key), cogs = sum('COGS', key), opex = sum('Opex', key);\n  return { rev, cogs, gp: rev - cogs, opex, ebitda: rev - cogs - opex };\n};\nconst B = pl('budget_amount'), A = pl('actual_amount');\n\nconst row = (line, b, a, isIncome) => {\n  const v = a - b;\n  return { line, budget: b, actual: a, variance: v,\n    variance_pct: b ? Math.round(v / Math.abs(b) * 1000) / 10 : null,\n    direction: (isIncome ? v >= 0 : v <= 0) ? 'F' : 'U' };\n};\nconst summary = [\n  row('Revenue', B.rev, A.rev, true),\n  row('COGS', B.cogs, A.cogs, false),\n  row('Gross profit', B.gp, A.gp, true),\n  row('Opex', B.opex, A.opex, false),\n  row('EBITDA', B.ebitda, A.ebitda, true),\n];\nconst gross_margin_pct = {\n  budget: Math.round(B.gp / B.rev * 1000) / 10,\n  actual: Math.round(A.gp / A.rev * 1000) / 10,\n};\n\n// ---- Material lines, biggest first (these go to the AI next) ----\nconst topN = toNum(cfg.top_n) || 10;\nconst material_lines = lines\n  .filter(l => l.material)\n  .sort((x, y) => Math.abs(y.variance) - Math.abs(x.variance))\n  .slice(0, topN);\n\nreturn [{ json: { month, reconciled: true, lines_checked: lines.length,\n                  summary, gross_margin_pct, material_lines } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        112
+      ],
+      "id": "e534967d-bc7f-43ee-98e3-aac6715f5491",
+      "name": "Build P&L Summary"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1822089489,
+          "mode": "list",
+          "cachedResultName": "Notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=1822089489"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "month",
+              "lookupValue": "={{ $('Edit Fields').first().json.report_month }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1616,
+        112
+      ],
+      "id": "0e9db345-ab9e-4367-91d0-d7443277317a",
+      "name": "Read Notes",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Build P&L Summary').first().json;\nconst notes = $('Read Notes').all().map(i => i.json).filter(n => n.note);\nconst gbp = n => (n < 0 ? '-£' : '£') + Math.abs(Math.round(n)).toLocaleString('en-GB');\n\nconst summaryText = s.summary.map(r =>\n  `${r.line}: budget ${gbp(r.budget)}, actual ${gbp(r.actual)}, variance ${gbp(r.variance)} (${r.variance_pct}%) ${r.direction}`\n).join('\\n');\n\nconst materialText = s.material_lines.map(l =>\n  `${l.department} - ${l.account}: budget ${gbp(l.budget_amount)}, actual ${gbp(l.actual_amount)}, variance ${gbp(l.variance)} (${l.variance_pct}%) ${l.direction}`\n).join('\\n');\n\nconst notesText = notes.length\n  ? notes.map(n => `${n.department}: ${n.note}`).join('\\n')\n  : 'None provided.';\n\nconst prompt = `You are an FP&A analyst writing month-end variance commentary for the leadership team of Harbourline Homeware Ltd. Month: ${s.month}. Gross margin was ${s.gross_margin_pct.actual}% vs ${s.gross_margin_pct.budget}% budget.\n\nRules:\n- Start with 2 sentences on overall performance: revenue, gross margin and EBITDA vs budget, and name the main driver of the EBITDA variance (e.g. opex over budget).\n- Then one bullet per material variance: department, account, £ and %, F or U, and the driver.\n- Where two variances share the same driver (e.g. a vacant role covered by contractors), link them in one bullet and state the net impact.\n- Use ONLY the drivers given in the department notes. If a variance has no matching note, write \"Driver to be confirmed with [department]\". Never invent a reason.\n- Plain British English, no hype, under 200 words. No headings.\n\nP&L summary:\n${summaryText}\n\nMaterial variances:\n${materialText}\n\nDepartment notes:\n${notesText}`;\n\nreturn [{ json: { month: s.month, prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        112
+      ],
+      "id": "2ab0c6b8-8c7d-4769-8aad-f59c65831c4a",
+      "name": "Prepare AI Prompt"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        320
+      ],
+      "id": "99891247-1e8a-4aa2-a822-6ce7c7d8e10b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "qR50EA55R67zkZlW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1648,
+        528
+      ],
+      "id": "6fe979f8-f5d7-4ede-99ba-401e9740de61",
+      "name": "Draft Commentary"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Build P&L Summary').first().json;\nconst text = $('Draft Commentary').first().json.text || '';\nconst cfg = Object.fromEntries($('Read Config').all().map(i => [i.json.key, i.json.value]));\n\nconst esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\*\\*/g,'');\nconst gbp = n => (n < 0 ? '-£' : '£') + Math.abs(Math.round(n)).toLocaleString('en-GB');\nconst [y, m] = s.month.split('-');\nconst monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m) - 1] + ' ' + y;\nconst fu = d => `<span style=\"color:${d === 'F' ? '#1a7f37' : '#cf222e'};font-weight:600\">${d}</span>`;\nconst td = 'style=\"padding:6px 10px;border-bottom:1px solid #ddd;text-align:right\"';\nconst tdl = 'style=\"padding:6px 10px;border-bottom:1px solid #ddd\"';\n\n// AI commentary -> HTML paragraphs and bullet list\nlet commentary = '', inList = false;\nfor (const line of text.split('\\n').map(l => l.trim()).filter(Boolean)) {\n  if (/^[\\*\\-•]\\s+/.test(line)) {\n    if (!inList) { commentary += '<ul>'; inList = true; }\n    commentary += `<li style=\"margin-bottom:6px\">${esc(line.replace(/^[\\*\\-•]\\s+/, ''))}</li>`;\n  } else {\n    if (inList) { commentary += '</ul>'; inList = false; }\n    commentary += `<p>${esc(line)}</p>`;\n  }\n}\nif (inList) commentary += '</ul>';\n\n// P&L summary table\nconst plRows = s.summary.map(r => `<tr${r.line === 'EBITDA' ? ' style=\"font-weight:700\"' : ''}>\n  <td ${tdl}>${r.line}</td><td ${td}>${gbp(r.budget)}</td><td ${td}>${gbp(r.actual)}</td>\n  <td ${td}>${gbp(r.variance)}</td><td ${td}>${r.variance_pct}%</td><td ${td}>${fu(r.direction)}</td></tr>`).join('');\n\n// Material lines table\nconst matRows = s.material_lines.map(l => `<tr>\n  <td ${tdl}>${l.department}</td><td ${tdl}>${l.account}</td><td ${td}>${gbp(l.budget_amount)}</td>\n  <td ${td}>${gbp(l.actual_amount)}</td><td ${td}>${gbp(l.variance)}</td><td ${td}>${l.variance_pct}%</td><td ${td}>${fu(l.direction)}</td></tr>`).join('');\n\nconst th = 'style=\"padding:6px 10px;background:#1F3864;color:#fff;text-align:right\"';\nconst thl = 'style=\"padding:6px 10px;background:#1F3864;color:#fff;text-align:left\"';\n\nconst html = `<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:760px\">\n<h2 style=\"color:#1F3864;margin-bottom:4px\">Harbourline Homeware – ${monthName} variance report</h2>\n<p style=\"color:#666;margin-top:0\">Gross margin ${s.gross_margin_pct.actual}% vs ${s.gross_margin_pct.budget}% budget · ${s.lines_checked} lines checked · totals reconciled to source</p>\n<h3>Commentary</h3>${commentary}\n<h3>P&amp;L summary</h3>\n<table style=\"border-collapse:collapse;width:100%\"><tr><th ${thl}>Line</th><th ${th}>Budget</th><th ${th}>Actual</th><th ${th}>Variance</th><th ${th}>Var %</th><th ${th}>F/U</th></tr>${plRows}</table>\n<h3>Material variances</h3>\n<table style=\"border-collapse:collapse;width:100%\"><tr><th ${thl}>Department</th><th ${thl}>Account</th><th ${th}>Budget</th><th ${th}>Actual</th><th ${th}>Variance</th><th ${th}>Var %</th><th ${th}>F/U</th></tr>${matRows}</table>\n<p style=\"color:#888;font-size:12px;margin-top:24px\">Automated report. Commentary drafted by AI from department notes and reviewed against source data. Simulated data for a portfolio project.</p>\n</div>`;\n\nreturn [{ json: {\n  to: cfg.report_recipients,\n  subject: `Harbourline – ${monthName} variance report`,\n  html\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        528
+      ],
+      "id": "f6c4c36e-6eef-4bb1-8a1e-84b41c2eef29",
+      "name": "Build Report Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        528
+      ],
+      "id": "6de922fd-2c2e-4be4-aab2-6e0611d8f29c",
+      "name": "Send Report",
+      "webhookId": "1c1b8055-c99d-49cc-bf02-54bcbb22948e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5wFm7cLgPsWUUVbs",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "   return $('Calculate Variances').all().map(i => {\n     const r = i.json;\n     return { json: {\n       month: r.month, department: r.department, gl_code: r.gl_code,\n       account: r.account, category: r.category,\n       budget: r.budget_amount, actual: r.actual_amount,\n       variance: r.variance, variance_pct: r.variance_pct,\n       direction: r.direction, material: r.material\n     }};\n   });"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        528
+      ],
+      "id": "ce7af8a5-5d1d-4c39-8ef0-05d20fa74b4c",
+      "name": "Prepare Output Rows"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 378752457,
+          "mode": "list",
+          "cachedResultName": "Variance_Output",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=378752457"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gl_code",
+              "displayName": "gl_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "account",
+              "displayName": "account",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "actual",
+              "displayName": "actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "variance",
+              "displayName": "variance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "variance_pct",
+              "displayName": "variance_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "material",
+              "displayName": "material",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2688,
+        528
+      ],
+      "id": "7c34a0b5-5e52-4180-a32c-6a1222fc6be2",
+      "name": "Write Variance Output",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "   const s = $('Build P&L Summary').first().json;\n   return s.summary.map(r => ({ json: {\n     month: s.month, line: r.line, budget: r.budget, actual: r.actual,\n     variance: r.variance, variance_pct: r.variance_pct, direction: r.direction\n   }}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        528
+      ],
+      "id": "6401b11d-86b0-437e-b80c-54604ba5c1e6",
+      "name": "Prepare Summary Rows"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 208913993,
+          "mode": "list",
+          "cachedResultName": "Summary",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=208913993"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "line",
+              "displayName": "line",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "actual",
+              "displayName": "actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "variance",
+              "displayName": "variance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "variance_pct",
+              "displayName": "variance_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3136,
+        528
+      ],
+      "id": "56aea668-13ea-487c-a28b-0c637416d81e",
+      "name": "Write Summary",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "   const s = $('Build P&L Summary').first().json;\n   return [{ json: {\n     timestamp: new Date().toISOString(),\n     report_month: s.month,\n     rows_processed: s.lines_checked,\n     material_lines: s.material_lines.length,\n     status: 'Success'\n   }}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        528
+      ],
+      "id": "6edbff08-e425-4dc4-ad20-3a856753fefb",
+      "name": "Prepare Log Row"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4",
+          "mode": "list",
+          "cachedResultName": "Harbourline FP&A",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 389579393,
+          "mode": "list",
+          "cachedResultName": "Run_Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HqF0U7oIUMjzsMFvKfdJjdOV7Um5WbbnilqvKgxMbJ4/edit#gid=389579393"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "report_month",
+              "displayName": "report_month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rows_processed",
+              "displayName": "rows_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "material_lines",
+              "displayName": "material_lines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3584,
+        528
+      ],
+      "id": "fb0f65e6-f049-49b5-a99a-ece34cb70ec9",
+      "name": "Write Run Log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MdAq8S6Bny4ozOEX",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Read Budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Budget": {
+      "main": [
+        [
+          {
+            "node": "Read Actuals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Actuals": {
+      "main": [
+        [
+          {
+            "node": "Match Budget to Actuals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Budget to Actuals": {
+      "main": [
+        [
+          {
+            "node": "Read Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Config": {
+      "main": [
+        [
+          {
+            "node": "Calculate Variances",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Variances": {
+      "main": [
+        [
+          {
+            "node": "Build P&L Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build P&L Summary": {
+      "main": [
+        [
+          {
+            "node": "Read Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Notes": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Draft Commentary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft Commentary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Commentary": {
+      "main": [
+        [
+          {
+            "node": "Build Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report Email": {
+      "main": [
+        [
+          {
+            "node": "Send Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Report": {
+      "main": [
+        [
+          {
+            "node": "Prepare Output Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Output Rows": {
+      "main": [
+        [
+          {
+            "node": "Write Variance Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Variance Output": {
+      "main": [
+        [
+          {
+            "node": "Prepare Summary Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Summary Rows": {
+      "main": [
+        [
+          {
+            "node": "Write Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Summary": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Log Row": {
+      "main": [
+        [
+          {
+            "node": "Write Run Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "44383ffc5679f72bdfd7178dee3069161d0f771cf55f4b0287a402d955fd6d7f"
+  }
+}
