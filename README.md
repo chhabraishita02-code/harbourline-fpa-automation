@@ -53,5 +53,4 @@ n8n · Google Sheets · Gmail · Google Gemini API · JavaScript (Code nodes)
 ## Limitations and next steps
 
 - Data is synthetic, so commentary quality depends on the notes provided
-- Runs on a manual trigger; a monthly Schedule Trigger and an error-alert workflow are the next additions
-- A Looker Studio dashboard on the output tab is planned
+
